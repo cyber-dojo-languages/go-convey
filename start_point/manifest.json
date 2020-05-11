@@ -1,13 +1,13 @@
-
 {
   "image_name": "cyberdojofoundation/go_convey",
   "display_name": "Go, convey",
-  "visible_filenames": [
+  "visible_filenames":
+  [
     "hiker_test.go",
     "hiker.go",
     "cyber-dojo.sh"
   ],
   "filename_extension": [ ".go" ],
-  "max_seconds": 10,
+  "max_seconds": 15,
   "tab_size": 4
 }
