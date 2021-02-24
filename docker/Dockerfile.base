@@ -1,4 +1,4 @@
-FROM cyberdojofoundation/go:b9bf8cd
+FROM cyberdojofoundation/go:551c481
 LABEL maintainer=jon@jaggersoft.com
 
 RUN go get github.com/smartystreets/goconvey/convey
