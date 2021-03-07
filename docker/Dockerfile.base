@@ -1,6 +1,7 @@
 FROM cyberdojofoundation/go:551c481
 LABEL maintainer=jon@jaggersoft.com
 
+ENV GO111MODULE=auto
 RUN go get github.com/smartystreets/goconvey/convey
 
 COPY red_amber_green.rb /usr/local/bin
