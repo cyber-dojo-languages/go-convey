@@ -1,4 +1,4 @@
-FROM cyberdojofoundation/go:7f5bba2
+FROM cyberdojofoundation/go:f67b58f
 LABEL maintainer=jon@jaggersoft.com
 
 ENV GO111MODULE=auto
