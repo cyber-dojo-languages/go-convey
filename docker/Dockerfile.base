@@ -3,6 +3,3 @@ LABEL maintainer=jon@jaggersoft.com
 
 COPY ./install.sh .
 RUN ./install.sh && rm ./install.sh
-
-#ENV GO111MODULE=auto
-#RUN go get github.com/smartystreets/goconvey/convey
