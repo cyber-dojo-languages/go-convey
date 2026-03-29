@@ -1,7 +1,8 @@
-FROM cyberdojofoundation/go:f67b58f
+FROM ghcr.io/cyber-dojo-languages/go:b7e7991
 LABEL maintainer=jon@jaggersoft.com
 
-ENV GO111MODULE=auto
-RUN go get github.com/smartystreets/goconvey/convey
+COPY ./install.sh .
+RUN ./install.sh && rm ./install.sh
 
-COPY red_amber_green.rb /usr/local/bin
+#ENV GO111MODULE=auto
+#RUN go get github.com/smartystreets/goconvey/convey
