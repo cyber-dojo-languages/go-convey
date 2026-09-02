@@ -58,14 +58,28 @@ GOCACHE=/go/build-cache go test
 
 # A cache is keyed on the toolchain and the flags that filled it. If those ever
 # drift from what cyber-dojo.sh runs, go silently rebuilds and the press is
-# merely as slow as it was before. Timing the second run catches that here
-# rather than leaving it to be noticed as a gradual slowdown: against a warm
-# cache it is a fraction of a second, and against a cold one it is not.
-readonly WARM_SECONDS=$( { TIMEFORMAT='%3R'; time GOCACHE=/go/build-cache go test > /dev/null 2>&1; } 2>&1 )
-echo "second [go test] against the warmed cache took ${WARM_SECONDS}s"
+# merely as slow as it was before. This compares a run against the warmed cache
+# with one against an empty one, and insists the warm run be several times
+# quicker.
+#
+# The comparison is against a cold run rather than a fixed number of seconds
+# because this same script runs under QEMU when the arm64 half of the image is
+# built on an amd64 machine. Emulated, a warm run takes seconds where it takes a
+# fraction of one natively, so any threshold that fits one fails the other. A
+# ratio holds either way: both runs are slowed by the same emulation.
+go_test_seconds()
+{
+  local -r cache_dir="${1}"
+  { TIMEFORMAT='%3R'; time GOCACHE="${cache_dir}" go test > /dev/null 2>&1; } 2>&1
+}
 
-if [ "$(echo "${WARM_SECONDS} < 0.5" | bc -l)" != '1' ]; then
-  >&2 echo "Expected a warmed cache to answer in well under half a second."
+readonly COLD_SECONDS=$(go_test_seconds /tmp/cold-cache)
+readonly WARM_SECONDS=$(go_test_seconds /go/build-cache)
+echo "[go test] cold ${COLD_SECONDS}s, warm ${WARM_SECONDS}s"
+rm -rf /tmp/cold-cache
+
+if [ "$(echo "${COLD_SECONDS} > ${WARM_SECONDS} * 3" | bc -l)" != '1' ]; then
+  >&2 echo "Expected a warmed cache to be several times quicker than an empty one."
   >&2 echo "The cache is not being hit, so a kata's first press will rebuild."
   exit 42
 fi
