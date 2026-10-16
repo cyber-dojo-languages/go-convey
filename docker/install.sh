@@ -28,8 +28,8 @@ go mod init cdl-go-convey
 # The newest goconvey release, resolved once here at build time. Every later
 # module in this build requires exactly this, so the image holds one version.
 # A kata runs with no network, so the start-point's go.mod and go.sum must
-# name this same version; they are printed at the end of this build for the
-# start-point's copies to be updated to match.
+# name this same version; the end of this build writes them to
+# /start_point_sync/.
 go get github.com/smartystreets/goconvey@latest
 readonly GOCONVEY_VERSION=$(go list -m -f '{{.Version}}' github.com/smartystreets/goconvey)
 
@@ -128,13 +128,15 @@ add_test_framework goconvey "${GOCONVEY_VERSION#v}"
 cat /versions.json
 
 # The start-point's go.mod and go.sum must require exactly what this image
-# holds. These are printed between markers so they can be copied from the
-# build log into the start-point whenever a rebuild picks up a new release.
-echo '--- start-point go.mod requires ---'
-sed -n '/^require/,$p' go.mod
-echo '--- start-point go.sum ---'
-cat go.sum
-echo '--- end ---'
+# holds. They are written to /start_point_sync/, which the propagation bot
+# copies into the start-point whenever this image's versions change. The
+# module line is the start-point's own; the go line is this image's Go.
+mkdir -p /start_point_sync
+{
+  printf 'module cyber-dojo-go-convey\n\ngo %s\n\n' "$(go env GOVERSION | sed 's/^go//')"
+  sed -n '/^require/,$p' go.mod
+} > /start_point_sync/go.mod
+cp go.sum /start_point_sync/go.sum
 
 cd ..
 rm -rf warmup
