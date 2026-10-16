@@ -1,26 +1,46 @@
 #!/bin/bash -Eeu
 
-# The version this image holds. It is pinned, not resolved, because the
-# start-point's go.mod names an exact version and a kata runs with no network:
-# a version the start-point names but the image lacks makes go try to download
-# it, and every light comes out amber. The image is rebuilt every week under
-# the same tag, so letting go mod tidy pick the newest release drifts the
-# image away from the start-point the first week goconvey publishes.
-# Raising this means raising the start-point's go.mod to match.
-readonly GOCONVEY_VERSION=1.8.1
-
-# Requires exactly the pinned version in the module in the current dir. go mod
-# tidy then keeps it, and resolves every indirect dependency from it, so the
-# whole module graph is fixed by this one number. Do not drop a call to this
-# before a go mod tidy: tidy alone takes the newest goconvey.
-require_pinned_version()
+# Appends one test framework to the test_frameworks list the base image
+# wrote in /versions.json, keeping any entry an earlier image added. Stops
+# the build if the list is not found, rather than record nothing. Short grep
+# flags because busybox grep has no long ones.
+add_test_framework()
 {
-  go get "github.com/smartystreets/goconvey@v${GOCONVEY_VERSION}"
+  local -r name="${1}"
+  local -r version="${2}"
+  local -r entry="{\"name\": \"${name}\", \"version\": \"${version}\"}"
+  if grep -q '"test_frameworks": \[\]' /versions.json; then
+    sed -i "s|\"test_frameworks\": \[\]|\"test_frameworks\": [${entry}]|" /versions.json
+  else
+    sed -i "/\"test_frameworks\": \[/s|}\]|}, ${entry}]|" /versions.json
+  fi
+  if ! grep -q -F "${entry}" /versions.json; then
+    echo "Could not add ${name} to /versions.json" >&2
+    cat /versions.json >&2
+    exit 1
+  fi
 }
 
 mkdir cdl && cd cdl
 
 go mod init cdl-go-convey
+
+# The newest goconvey release, resolved once here at build time. Every later
+# module in this build requires exactly this, so the image holds one version.
+# A kata runs with no network, so the start-point's go.mod and go.sum must
+# name this same version; they are printed at the end of this build for the
+# start-point's copies to be updated to match.
+go get github.com/smartystreets/goconvey@latest
+readonly GOCONVEY_VERSION=$(go list -m -f '{{.Version}}' github.com/smartystreets/goconvey)
+
+# Requires exactly the resolved version in the module in the current dir. go
+# mod tidy then keeps it, and resolves every indirect dependency from it, so
+# the whole module graph is fixed by this one version. Do not drop a call to
+# this before a go mod tidy: tidy alone could take a newer release.
+require_pinned_version()
+{
+  go get "github.com/smartystreets/goconvey@${GOCONVEY_VERSION}"
+}
 
 cat > dummy.go << 'EOF'
 package cdl
@@ -103,6 +123,18 @@ if [ "$(echo "${COLD_SECONDS} > ${WARM_SECONDS} * 3" | bc -l)" != '1' ]; then
   >&2 echo "The cache is not being hit, so a kata's first press will rebuild."
   exit 42
 fi
+
+add_test_framework goconvey "${GOCONVEY_VERSION#v}"
+cat /versions.json
+
+# The start-point's go.mod and go.sum must require exactly what this image
+# holds. These are printed between markers so they can be copied from the
+# build log into the start-point whenever a rebuild picks up a new release.
+echo '--- start-point go.mod requires ---'
+sed -n '/^require/,$p' go.mod
+echo '--- start-point go.sum ---'
+cat go.sum
+echo '--- end ---'
 
 cd ..
 rm -rf warmup
